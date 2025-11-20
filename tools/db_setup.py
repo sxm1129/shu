@@ -37,6 +37,7 @@ TABLES['chapters'] = (
     "  `chapter_index` int(11) NOT NULL,"
     "  `title` varchar(255),"
     "  `content` LONGTEXT,"
+    "  `content_length` INT,"
     "  PRIMARY KEY (`id`),"
     "  FOREIGN KEY (`book_id`) REFERENCES `books` (`id`) ON DELETE CASCADE"
     ") ENGINE=InnoDB")

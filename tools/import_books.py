@@ -167,61 +167,71 @@ def process_books():
         for file in files:
             if not file.endswith('.txt'):
                 continue
-                
-            file_path = os.path.join(root, file)
-            filename = file
-            book_title_stem = os.path.splitext(filename)[0]
             
-            print(f"Processing {filename}...")
-            
-            # Get metadata
-            meta = metadata_map.get(book_title_stem, {})
-            title = meta.get('书名', book_title_stem)
-            book_title = meta.get('Book Title', '')
-            author = meta.get('Author', '')
-            pub_date = meta.get('Publication Date', '')
-            copyright_year = meta.get('Copyright Open Year', '')
-            last_modified = meta.get('Last Modified', '')
-            
-            # Insert into books table
-            add_book = ("INSERT INTO books "
-                        "(filename, title, book_title, author, publication_date, copyright_year, last_modified) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s)")
-            data_book = (filename, title, book_title, author, pub_date, copyright_year, last_modified)
-            cursor.execute(add_book, data_book)
-            book_id = cursor.lastrowid
-            
-            # Read content
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-            except UnicodeDecodeError:
+                file_path = os.path.join(root, file)
+                filename = file
+                book_title_stem = os.path.splitext(filename)[0]
+                
+                print(f"Processing {filename}...")
+                
+                # Get metadata
+                meta = metadata_map.get(book_title_stem, {})
+                title = meta.get('书名', book_title_stem)
+                book_title = meta.get('Book Title', '')
+                author = meta.get('Author', '')
+                pub_date = meta.get('Publication Date', '')
+                copyright_year = meta.get('Copyright Open Year', '')
+                last_modified = meta.get('Last Modified', '')
+                
+                # Insert into books table
+                add_book = ("INSERT INTO books "
+                            "(filename, title, book_title, author, publication_date, copyright_year, last_modified) "
+                            "VALUES (%s, %s, %s, %s, %s, %s, %s)")
+                data_book = (filename, title, book_title, author, pub_date, copyright_year, last_modified)
+                cursor.execute(add_book, data_book)
+                book_id = cursor.lastrowid
+                
+                # Read content
                 try:
-                    with open(file_path, 'r', encoding='gb18030') as f:
+                    with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
-                except Exception as e:
-                    print(f"Failed to read {filename}: {e}")
-                    continue
-            
-            # Clean content
-            content = clean_text(content, ocr_regexes)
-            
-            # Split chapters
-            chapters = split_chapters(content)
-            
-            # Insert chapters
-            add_chapter = ("INSERT INTO chapters "
-                           "(book_id, book_name, chapter_index, title, content) "
-                           "VALUES (%s, %s, %s, %s, %s)")
-            
-            for idx, chap in enumerate(chapters):
-                # Truncate title to 255 characters
-                chap_title = chap['title'][:255]
-                data_chapter = (book_id, title, idx + 1, chap_title, chap['content'])
-                cursor.execute(add_chapter, data_chapter)
-            
-            cnx.commit()
-            print(f"Imported {filename} with {len(chapters)} chapters.")
+                except UnicodeDecodeError:
+                    try:
+                        with open(file_path, 'r', encoding='gb18030') as f:
+                            content = f.read()
+                    except Exception as e:
+                        print(f"Failed to read {filename}: {e}")
+                        cnx.rollback()
+                        continue
+                
+                # Clean content
+                content = clean_text(content, ocr_regexes)
+                
+                # Split chapters
+                chapters = split_chapters(content)
+                
+                # Insert chapters
+                add_chapter = ("INSERT INTO chapters "
+                               "(book_id, book_name, chapter_index, title, content, content_length) "
+                               "VALUES (%s, %s, %s, %s, %s, %s)")
+                
+                for idx, chap in enumerate(chapters):
+                    # Truncate title to 255 characters
+                    chap_title = chap['title'][:255]
+                    chap_content = chap['content']
+                    content_len = len(chap_content)
+                    data_chapter = (book_id, title, idx + 1, chap_title, chap_content, content_len)
+                    cursor.execute(add_chapter, data_chapter)
+                
+                cnx.commit()
+                print(f"Imported {filename} with {len(chapters)} chapters.")
+                
+            except Exception as e:
+                print(f"ERROR: Failed to process {filename}: {e}")
+                print(f"Skipping {filename} and continuing...")
+                cnx.rollback()
+                continue
 
     cursor.close()
     cnx.close()

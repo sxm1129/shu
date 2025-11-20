@@ -103,6 +103,25 @@ def analyze_suitang():
             print(f"Content Preview (Start): {content[:200]!r}")
             print(f"Content Preview (End): {content[-200:]!r}")
 
+        # 8. Inspect Newlines
+        print("\n--- Newline Inspection (Chapter 1) ---")
+        cursor.execute("SELECT content, content_length FROM chapters WHERE book_id = %s AND title LIKE '%%第一回 %%'", (book_id,))
+        chap1 = cursor.fetchone()
+        if chap1:
+            content = chap1['content']
+            db_len = chap1['content_length']
+            calc_len = len(content)
+            print(f"Raw Content Sample (first 500 chars): {content[:500]!r}")
+            # Count occurrences of multiple newlines
+            double_newlines = content.count('\n\n')
+            triple_newlines = content.count('\n\n\n')
+            print(f"Total length (DB column): {db_len}")
+            print(f"Total length (Calculated): {calc_len}")
+            print(f"Length Match: {db_len == calc_len}")
+            print(f"Double newlines (\\n\\n): {double_newlines}")
+            print(f"Triple newlines (\\n\\n\\n): {triple_newlines}")
+
+
 
 
     except mysql.connector.Error as err:
